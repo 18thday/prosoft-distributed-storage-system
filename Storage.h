@@ -18,29 +18,29 @@ public:
     Storage(const std::string& filePath, const int numberOfParts); // , size_t partSizeInBytes)
     
     /**
-      * @brief Деление файла на части
-      * @param filePath Путь к файлу
-      * @param numberOfParts Число частей
-      * @return std::vector<FilePart> Возвращаем вектор структур с заполненными данными деления 
+      * @brief Р”РµР»РµРЅРёРµ С„Р°Р№Р»Р° РЅР° С‡Р°СЃС‚Рё
+      * @param filePath РџСѓС‚СЊ Рє С„Р°Р№Р»Сѓ
+      * @param numberOfParts Р§РёСЃР»Рѕ С‡Р°СЃС‚РµР№
+      * @return std::vector<FilePart> Р’РѕР·РІСЂР°С‰Р°РµРј РІРµРєС‚РѕСЂ СЃС‚СЂСѓРєС‚СѓСЂ СЃ Р·Р°РїРѕР»РЅРµРЅРЅС‹РјРё РґР°РЅРЅС‹РјРё РґРµР»РµРЅРёСЏ 
     */
     static std::vector<FilePart> splitFile(const std::string& filePath, const int numberOfParts);
     /**
-      * @brief Объединение кусков файла в единый
-      * @param std::vector<FilePart> Вектор со всей информация о частях
-      * @patam string& outputPath Путь для скачивания объединенного файла
+      * @brief РћР±СЉРµРґРёРЅРµРЅРёРµ РєСѓСЃРєРѕРІ С„Р°Р№Р»Р° РІ РµРґРёРЅС‹Р№
+      * @param std::vector<FilePart> Р’РµРєС‚РѕСЂ СЃРѕ РІСЃРµР№ РёРЅС„РѕСЂРјР°С†РёСЏ Рѕ С‡Р°СЃС‚СЏС…
+      * @patam string& outputPath РџСѓС‚СЊ РґР»СЏ СЃРєР°С‡РёРІР°РЅРёСЏ РѕР±СЉРµРґРёРЅРµРЅРЅРѕРіРѕ С„Р°Р№Р»Р°
     */
     static void mergeFile(const std::vector<FilePart>, const std::string& outputPath);
     /**
-      * @brief Перераспределение частей файлов
-      * @param std::vector<FilePart> Вектор со всей информация о имеющихся частях файла старой конфигурации
-      * @patam int newNumbersOfParts Новое колличество частей(узлов)
-      * @return vector<FilePart> Возвращаем вектор с актуальными разделениями
+      * @brief РџРµСЂРµСЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ С‡Р°СЃС‚РµР№ С„Р°Р№Р»РѕРІ
+      * @param std::vector<FilePart> Р’РµРєС‚РѕСЂ СЃРѕ РІСЃРµР№ РёРЅС„РѕСЂРјР°С†РёСЏ Рѕ РёРјРµСЋС‰РёС…СЃСЏ С‡Р°СЃС‚СЏС… С„Р°Р№Р»Р° СЃС‚Р°СЂРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРё
+      * @patam int newNumbersOfParts РќРѕРІРѕРµ РєРѕР»Р»РёС‡РµСЃС‚РІРѕ С‡Р°СЃС‚РµР№(СѓР·Р»РѕРІ)
+      * @return vector<FilePart> Р’РѕР·РІСЂР°С‰Р°РµРј РІРµРєС‚РѕСЂ СЃ Р°РєС‚СѓР°Р»СЊРЅС‹РјРё СЂР°Р·РґРµР»РµРЅРёСЏРјРё
     */
     static std::vector<FilePart> reconfiguration(const std::vector<FilePart>, const int newNumbersOfParts);
 
        
 private:
-    std::string& filePath; // Путь файла
-    int numberOfParts; // Число частей на которые нужно разделить фаил
+std::string& filePath; // РџСѓС‚СЊ С„Р°Р№Р»Р°
+int numberOfParts; // Р§РёСЃР»Рѕ С‡Р°СЃС‚РµР№ РЅР° РєРѕС‚РѕСЂС‹Рµ РЅСѓР¶РЅРѕ СЂР°Р·РґРµР»РёС‚СЊ С„Р°РёР»
 }
 
