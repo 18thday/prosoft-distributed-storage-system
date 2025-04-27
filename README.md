@@ -34,7 +34,7 @@ target_link_libraries(prosoft_distributed_storage_system ${Boost_LIBRARIES})
 **Для VScode**
 - У вас должен быть CMakeLists.txt.
 - В палитре команд (Ctrl+Shift+P) введите "CMake: Select a kit". Выберите подходящий компилятор. Например GCC.
-- Нажмите кнопку ![[compile_btn.png]] в модуле cmake, либо в верхней панели  у вас появится директория ./buld
+- Нажмите кнопку ![compile_btn](img/compile_btn.png) в модуле cmake, либо в верхней панели  у вас появится директория ./buld
 - Выполните следующие команды в терминале (Ctrl+ё):
 ```
 cd build      # Переходим в директорию сборки
