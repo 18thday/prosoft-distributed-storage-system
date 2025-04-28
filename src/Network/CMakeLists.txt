@@ -7,7 +7,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 include_directories(${BOOST_INCLUDE_DIRS})
 
-add_executable(node node.cpp)
-add_executable(send_packet send_packet.cpp)
+add_executable(start_node start_node.cpp node.cpp client.cpp)
+add_executable(connect_to_node connect_to_node.cpp client.cpp)
 
 target_link_libraries(${Boost_LIBRARIES})

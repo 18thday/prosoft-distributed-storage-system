@@ -5,62 +5,62 @@
 #include <string>
 #include <string_view>
 
-//#include "client.h"
+#include "client.h"
 
 namespace net = boost::asio;
 using net::ip::tcp;
 
 using namespace std::literals;
 
-class Client {
-    public:
-        Client(boost::asio::io_context& io_context, const std::string& host, const std::string& port)
-            : resolver_(io_context),
-              socket_(io_context),
-              host_(host),
-              port_(port) {}
-    
-        void connect() {
-            boost::asio::ip::tcp::resolver::results_type endpoints =
-                resolver_.resolve(host_, port_);
-    
-            // Подключаемся к первому доступному эндпоинту
-            boost::asio::connect(socket_, endpoints);
-            boost::system::error_code ec;
-            if (ec) {
-                std::cout << "Can't connect to server"sv << std::endl;
-            }else
-            {
-                std::cout << "Connect to server" << std::endl;
-            }
-    
-        }
-    
-        void send(const std::string& message) {
-            // Добавляем терминальный символ
-            boost::asio::write(socket_, boost::asio::buffer(message + '\0'));
-        }
-    
-        std::string receive() {
-            boost::asio::streambuf buf;
-            boost::asio::read_until(socket_, buf, '\0');
-    
-            // Преобразуем данные в строку
-            std::string data;
-            std::istream is(&buf);
-            std::getline(is, data);
-            return data;
-        }
-        boost::asio::ip::tcp::socket& get_socket() {
-            return socket_;
-        }
-        void close() {
-            socket_.close();
-        }
-    
-    private:
-        boost::asio::ip::tcp::resolver resolver_;
-        boost::asio::ip::tcp::socket socket_;
-        std::string host_;
-        std::string port_;
-    };
+Client::Client(const std::string& host, const int port)
+    : io_context_(net::io_context()), 
+        resolver_(io_context_),
+        socket_(io_context_),
+        adress(host, port)
+{}
+
+void Client::connect() {
+    boost::system::error_code resolve_ec;
+    boost::asio::ip::tcp::resolver::results_type endpoints =
+        resolver_.resolve(adress.ip, std::to_string(adress.port), resolve_ec);
+
+    if (resolve_ec) {
+        std::cout << "Resolution failed: " << resolve_ec.message() << std::endl;
+        return;
+    }
+
+    // Подключаемся к первому доступному эндпоинту
+    boost::asio::connect(socket_, endpoints);
+    boost::system::error_code ec;
+    if (ec) {
+        std::cout << "Can't connect to server"sv << std::endl;
+    }else
+    {
+        std::cout << "Connect to server" << std::endl;
+    }
+
+}
+
+void Client::send(const std::string& message) {
+    // Добавляем терминальный символ
+    boost::asio::write(socket_, boost::asio::buffer(message + '\0'));
+}
+
+std::string Client::receive() {
+    boost::asio::streambuf buf;
+    boost::system::error_code ec;
+    boost::asio::read_until(socket_, buf, '\0', ec);
+
+    if (ec.failed())
+        std::cerr << ec.message() << '\n';
+
+    // Преобразуем данные в строку
+    std::string data;
+    std::istream is(&buf);
+    std::getline(is, data);
+    return data;
+}
+
+void Client::close() {
+    socket_.close();
+}
