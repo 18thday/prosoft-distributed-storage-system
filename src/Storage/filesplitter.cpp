@@ -9,8 +9,8 @@ FileSplitter::FileSplitter() {}
 //createTempDirectory();
 
 int FileSplitter::split(const std::string& filePath,
-                                const std::string& tempDir,
-                                size_t chunkSize)
+                        const std::string& tempDir,
+                        size_t chunkSize)
 {
     boost::filesystem::path inputFile(filePath);
     if (!boost::filesystem::exists(inputFile)) {
@@ -50,7 +50,6 @@ int FileSplitter::split(const std::string& filePath,
             throw std::runtime_error("Could not create output file: " + chunkPath.string());
         }
 
-        //char buffer[chunkSize];
         std::unique_ptr<char[]> buffer(new char[chunkSize]);
 
         inFile.read(buffer.get(), chunkSize);
