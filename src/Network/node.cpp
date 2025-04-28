@@ -2,20 +2,22 @@
 #include <thread>
 #include "boost/asio.hpp"
 
+#include "packets.h"
+
 namespace net = boost::asio;
 using net::ip::tcp;
 
-class Server {
+class Node {
 public:
     const int port;
-    Server() = delete;
-    Server(int port) : port{port}
+    Node() = delete;
+    Node(int port) : port{port}
     {
         std::cout << "starting serv" << std::endl;
         net::io_context io_context;
         thread = std::thread(server_loop, port);
     }
-    ~Server()
+    ~Node()
     {
         thread.detach();
     }
@@ -44,16 +46,26 @@ private:
             }
 
             // read client data
-            net::streambuf stream_buf;
-            net::read_until(socket, stream_buf, '\n', ec);
-            std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
-                                    std::istreambuf_iterator<char>()};
-            if (ec) {
-                std::cout << "Error reading data" << std::endl;
-                return 1;
-            }
+            // net::streambuf stream_buf;
+            // net::read_until(socket, stream_buf, '\n', ec);
+            // std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
+            //                         std::istreambuf_iterator<char>()};
 
-            std::cout << "Client said: " << client_data << std::endl;
+            std::shared_ptr<BasePacket> pack = read_packet(socket);
+
+            // if (ec) {
+            //     std::cout << "Error reading data" << std::endl;
+            //     return 1;
+            // }
+
+            std::cout << "Client said: " << (int)pack->type << std::endl;
+
+            if (pack->type == FILE_PART)
+            {
+                FilePartPacket& file_pack = (FilePartPacket&)*pack;
+                std::cout << "File name is: " << file_pack.file_name << '\n';
+                std::cout << "File content is: " << file_pack.file_part << '\n';
+            }
 
             // answer to client
             socket.write_some(net::buffer("Hello, I'm server!\n"), ec);
@@ -70,6 +82,6 @@ private:
 
 int main()
 {
-    Server s1(1337);
+    Node s1(1337);
     sleep(999999999);
 }
