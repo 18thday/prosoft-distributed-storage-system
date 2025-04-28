@@ -45,27 +45,12 @@ private:
                 return 1;
             }
 
-            // read client data
-            // net::streambuf stream_buf;
-            // net::read_until(socket, stream_buf, '\n', ec);
-            // std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
-            //                         std::istreambuf_iterator<char>()};
+            net::streambuf stream_buf;
+            net::read_until(socket, stream_buf, '\0', ec);
+            std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
+                                    std::istreambuf_iterator<char>()};
 
-            std::shared_ptr<BasePacket> pack = read_packet(socket);
-
-            // if (ec) {
-            //     std::cout << "Error reading data" << std::endl;
-            //     return 1;
-            // }
-
-            std::cout << "Client said: " << (int)pack->type << std::endl;
-
-            if (pack->type == FILE_PART)
-            {
-                FilePartPacket& file_pack = (FilePartPacket&)*pack;
-                std::cout << "File name is: " << file_pack.file_name << '\n';
-                std::cout << "File content is: " << file_pack.file_part << '\n';
-            }
+            std::cout << "Client said: " << client_data << std::endl;
 
             // answer to client
             socket.write_some(net::buffer("Hello, I'm server!\n"), ec);

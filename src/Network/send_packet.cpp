@@ -1,12 +1,8 @@
 #include <boost/asio.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
 
 #include <iostream>
 #include <string>
 #include <string_view>
-
-#include "packets.h"
 
 namespace net = boost::asio;
 using net::ip::tcp;
@@ -44,11 +40,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // BasePacket pack = {NODE_CONNECTED};
-    FilePartPacket pack = {FILE_PART, 0, "myfile.txt", "1010100101010001"};
+    std::string msg = "Hello, im client";
 
-    socket.write_some(net::buffer(&pack, sizeof(pack)), ec);
-    std::cout << "Written bytes -> "sv << sizeof(pack) << std::endl;
+    socket.write_some(net::buffer(msg), ec);
     if (ec) {
         std::cout << "Error sending data"sv << std::endl;
         return 1;
