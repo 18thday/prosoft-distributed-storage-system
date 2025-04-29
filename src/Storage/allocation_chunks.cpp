@@ -78,6 +78,24 @@ std::vector<Chunk> allocation_chunks(std::vector<ip_t> all_ip, std::vector<std::
 
 int main() {
 
+/*****************************************************************************************
+|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|
+\           /\             /\             /\             /\             /\             /
+   ip1,ip6       ip1,ip2        ip2,ip3        ip3,ip4         ip4,ip5        ip5,ip6
+   
+   
+   
+в результирующем векторе все chunk представлены отдельно:
+chunk 1 - ip1,ip6
+chunk 2 - ip1,ip6
+chunk 3 - ip1,ip6
+chunk 4 - ip1,ip6
+chunk 5 - ip1,ip6
+chunk 6 - ip1,ip6
+chunk 7 - ip1,ip2
+chunk 8 - ip1,ip2
+...
+*******************************************************************************************/
 
     std::vector<std::string> chunks_test = {"path1", "path2", "path3", "path4", "path5",
                                             "path6", "path7","path8","path9",
