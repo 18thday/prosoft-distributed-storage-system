@@ -1,6 +1,23 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
+#include "types.h"
+#include <string>
+#include <vector>
+
+// Класс для работы с файлами
+class Storage {
+public:
+    // Разделяет файл на части
+    static std::vector<FilePart> splitFile(const std::string& filePath, FileMetaData& metadata, size_t part_count);
+    // Объединяет части файла
+    static bool mergeFile(const std::vector<FilePart>& parts, const std::string& outputPath, const FileMetaData& metadata);
+    // Вычисляет хеш
+    static std::string calculateHash(const std::string& data);
+};
+
+/*
+#endif
 #pragma once
 #include <vector>
 #include <string>
@@ -15,6 +32,7 @@
  * @class Storage
  * @brief Класс для работы с файлами, будетиспользоваться и клиентом и узлами.
  */
+/*
 class Storage
 {
 public:
@@ -27,7 +45,7 @@ public:
      * @param chunkSize Размер каждой части в байтах.
      * @return std::string Путь к директории с частями файлов.
      */
-    static std::string splitFile(const std::string& filePath,
+    /*static std::string splitFile(const std::string& filePath,
                                  const std::string& tempDir,
                                  const size_t chunkSize);
     /**
@@ -35,14 +53,14 @@ public:
       * @param filePath Путь к файлу
       * @return std::vector<FilePart> Возвращаем вектор структур с заполненными данными деления
     */
-    static std::string splitFile(const std::string& filePath);
+    //static std::string splitFile(const std::string& filePath);
 
     /**
       * @brief Объединение кусков файла в единый
       * @param std::vector<FilePart> Вектор со всей информация о частях
       * @patam string& outputPath Путь для скачивания объединенного файла
     */
-    static void mergeFile(const std::string& tempDir,
+    /*static void mergeFile(const std::string& tempDir,
                           const std::string& outDir,
                           const size_t chunkSize);
 
@@ -60,14 +78,14 @@ public:
      * @param splitFileDir Директория с частями файлов.
      * @return std::string Содержимое каждого отдельного файла в виде строки.
      */
-    static std::string uploadData(const std::string& splitFileDir);/// наверное проще вернуть вектор, но не любой файл засунешь в оперативку
+    /*static std::string uploadData(const std::string& splitFileDir);/// наверное проще вернуть вектор, но не любой файл засунешь в оперативку
     /**
      * @brief Создает JSON из строковых данных.
      * @param tempDir Директория для временного хранения данных.
      * @param data Строка с данными для преобразования в JSON.
      * @return std::string JSON-строка.
      */
-    static std::string reciveData(const std::string& tempDir,
+    /*static std::string reciveData(const std::string& tempDir,
                                   const std::string& data);
 
 private:
@@ -76,13 +94,13 @@ private:
      * @param fileSize Размер файла в байтах.
      * @return True, если на диске достаточно места; иначе False.
      */
-    static bool hasEnoughSpace(size_t fileSize, std::string tempDir);
+    /*static bool hasEnoughSpace(size_t fileSize, std::string tempDir);
     /**
      * @brief Очищает имя файла от недопустимых символов (например, пробелов). Сейчас не используется.
      * @param filename Имя файла для очистки.
      * @return Очищенное имя файла.
      */
-    static std::string sanitizeFilename(const std::string& filename); // Обработка пробелов и спецсимволов
+    /*static std::string sanitizeFilename(const std::string& filename); // Обработка пробелов и спецсимволов
     /**
      * @brief Создает JSON с информацией о файле.
      * @param file_name Путь к файлу.
@@ -93,7 +111,7 @@ private:
      * @param chunk_count Количество частей.
      * @param outputDir Директория для сохранения JSON.
      */
-    static void createFileInfoJson(const boost::filesystem::path& file_name,
+    /*static void createFileInfoJson(const boost::filesystem::path& file_name,
                                    size_t file_size,
                                    size_t file_hash,
                                    const std::string& file_type,
@@ -109,7 +127,7 @@ private:
      * @param data Строка с бинарными данными в формате base64 части файла.
      * @param output_file Путь для сохранения JSON.
      */
-    static void createChunkJson(const std::string& file_name,
+    /*static void createChunkJson(const std::string& file_name,
                                 const std::string& chunk_name,
                                 int chunk_number,
                                 size_t chunk_size,
@@ -119,30 +137,30 @@ private:
     /**
      * @brief Изменяет JSON файл (функция в разработке).
      */
-    static void changeJsonFile();
+    /*static void changeJsonFile();
     /**
      * @brief Создает JSON со списком файлов в директории.
      */
-    static void createFilesListJson();
+    /*static void createFilesListJson();
     /**
      * @brief Очищает указанную директорию, dirPath тоже удаляется.
      * @param dirPath Путь к директории для очистки.
      */
-    static void clearDirectory(const boost::filesystem::path& dirPath);
+    /*static void clearDirectory(const boost::filesystem::path& dirPath);
     /**
      * @brief Вычисляет хэш файла.
      * @param filePath Путь к файлу.
      * @param chunkSize Размер части.
      * @return size_t Хэш файла.
      */
-    static size_t calculateFileHash(const boost::filesystem::path& filePath, const size_t& chunkSize);/// может пригодится при сборке файла или тоже вычислить его в merge
+    /*static size_t calculateFileHash(const boost::filesystem::path& filePath, const size_t& chunkSize);/// может пригодится при сборке файла или тоже вычислить его в merge
     /**
      * @brief Кодирует бинарные данные в строку в формате base64.
      * @param data Указатель на данные.
      * @param size Размер данных.
      * @return std::string Закодированные данные в формате base64.
      */
-    static std::string base64_encode(const char* data, size_t size);
+    /*static std::string base64_encode(const char* data, size_t size);
 };
 
 #endif // STORAGE_H

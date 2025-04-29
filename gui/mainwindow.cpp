@@ -3,15 +3,40 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QProgressBar>
 #include <QDateTime>
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), current_file_(nullptr) {
+MainWindow::MainWindow(QWidget* parent)
+    : QMainWindow(parent),
+      api_(nullptr),
+      fileTable_(nullptr),
+      nodeTable_(nullptr),
+      hostEdit_(nullptr),
+      portEdit_(nullptr),
+      uploadButton_(nullptr),
+      downloadButton_(nullptr),
+      deleteButton_(nullptr),
+      listFilesButton_(nullptr),
+      fileNameLabel_(nullptr),
+      progressBar_(nullptr),
+      statusLabel_(nullptr) {
+    try {
+        api_ = new ClientToServerAPI(this);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Ошибка", "Не удалось инициализировать API: " + QString::fromStdString(e.what()));
+        throw;
+    }
+
     setupUi();
+
+    connect(this, &MainWindow::progressUpdated, this, &MainWindow::updateProgressBar);
+    connect(this, &MainWindow::statusUpdated, this, &MainWindow::updateStatusLabel);
+    connect(this, &MainWindow::fileTableUpdated, this, &MainWindow::updateFileTable);
+    connect(this, &MainWindow::nodeTableUpdated, this, &MainWindow::updateNodeTable);
+    connect(this, &MainWindow::fileRowRemoved, this, &MainWindow::removeFileRow);
+}
+
+MainWindow::~MainWindow() {
+    delete api_;
 }
 
 void MainWindow::setupUi() {
@@ -32,8 +57,8 @@ void MainWindow::setupUi() {
 
     fileTable_ = new QTableWidget(this);
     fileTable_->setColumnCount(2);
-    fileTable_->setHorizontalHeaderLabels({"Имя файла", "Размер"});
-    fileTable_->setSelectionMode(QAbstractItemView::SingleSelection);
+    fileTable_->setHorizontalHeaderLabels({"ID файла", "Размер"});
+    fileTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     mainLayout->addWidget(fileTable_);
 
     nodeTable_ = new QTableWidget(this);
@@ -76,82 +101,167 @@ void MainWindow::onConnectClicked() {
     bool ok;
     quint16 port = portEdit_->text().toUShort(&ok);
     if (!ok) {
-        statusLabel_->setText("Неверный порт");
+        emit statusUpdated("Неверный порт");
         return;
     }
-    statusLabel_->setText("Подключено к " + host + ":" + QString::number(port));
-
-    // Имитация добавления узла в таблицу
-    int row = nodeTable_->rowCount();
-    nodeTable_->insertRow(row);
-    nodeTable_->setItem(row, 0, new QTableWidgetItem(host));
-    nodeTable_->setItem(row, 1, new QTableWidgetItem("ok"));
+    std::string nodeIpPort = host.toStdString() + ":" + std::to_string(port);
+    api_->connect(nodeIpPort);
+    emit statusUpdated("Подключено к " + host + ":" + QString::number(port));
 }
 
 void MainWindow::onUploadClicked() {
     QString filePath = QFileDialog::getOpenFileName(this, "Выберите файл");
     if (filePath.isEmpty()) {
-        statusLabel_->setText("Выбор файла отменен");
+        emit statusUpdated("Выбор файла отменён");
         return;
     }
-
-    current_file_ = new QFile(filePath);
-    if (!current_file_->open(QIODevice::ReadOnly)) {
-        statusLabel_->setText("Не удалось открыть файл");
-        delete current_file_;
-        current_file_ = nullptr;
-        return;
-    }
-
-    file_id_ = "file_" + QString::number(QDateTime::currentMSecsSinceEpoch());
-    total_parts_ = (current_file_->size() + 1024 * 1024 - 1) / (1024 * 1024); // MIN_CHUNK_SIZE = 1MB
-    current_part_ = 0;
-    progressBar_->setMaximum(total_parts_);
-    progressBar_->setValue(0);
     fileNameLabel_->setText("Файл: " + filePath);
-    statusLabel_->setText("Файл выбран, размер: " + QString::number(current_file_->size()) + " байт");
-
-    current_file_->close();
-    delete current_file_;
-    current_file_ = nullptr;
+    emit statusUpdated("Начало загрузки...");
+    api_->uploadFile(filePath.toStdString());
 }
 
 void MainWindow::onDownloadClicked() {
     if (fileTable_->currentRow() < 0) {
-        statusLabel_->setText("Выберите файл для скачивания");
+        emit statusUpdated("Выберите файл для скачивания");
         return;
     }
     QString fileId = fileTable_->item(fileTable_->currentRow(), 0)->text();
     QString savePath = QFileDialog::getSaveFileName(this, "Сохранить файл", fileId);
     if (savePath.isEmpty()) {
-        statusLabel_->setText("Сохранение отменено");
+        emit statusUpdated("Сохранение отменено");
         return;
     }
     fileNameLabel_->setText("Файл: " + savePath);
-    statusLabel_->setText("Скачивание имитировано для " + fileId);
+    emit statusUpdated("Начало скачивания...");
+    api_->downloadFile(fileId.toStdString(), savePath.toStdString());
 }
 
 void MainWindow::onDeleteClicked() {
     if (fileTable_->currentRow() < 0) {
-        statusLabel_->setText("Выберите файл для удаления");
+        emit statusUpdated("Выберите файл для удаления");
         return;
     }
     QString fileId = fileTable_->item(fileTable_->currentRow(), 0)->text();
     int reply = QMessageBox::question(this, "Подтверждение удаления",
-                                      "Вы уверены, что хотите удалить файл " + fileId + "?",
+                                      "Удалить файл " + fileId + "?",
                                       QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-        fileTable_->removeRow(fileTable_->currentRow());
-        statusLabel_->setText("Файл " + fileId + " удален");
+        emit statusUpdated("Удаление...");
+        api_->deleteFile(fileId.toStdString());
     }
 }
 
 void MainWindow::onListFilesClicked() {
-    // Имитация обновления списка файлов
+    emit statusUpdated("Обновление списка...");
+    api_->listFiles();
+}
+
+void MainWindow::onUploadProgress(const std::string& fileId, uint64_t partNumber, uint64_t totalParts) {
+    if (totalParts > 0) {
+        emit progressUpdated(static_cast<int>(partNumber), static_cast<int>(totalParts));
+        emit statusUpdated("Загрузка " + QString::fromStdString(fileId) + ": " + QString::number(partNumber) + "/" + QString::number(totalParts));
+    }
+}
+
+void MainWindow::onDownloadProgress(const std::string& fileId, uint64_t partNumber, uint64_t totalParts) {
+    if (totalParts > 0) {
+        emit progressUpdated(static_cast<int>(partNumber), static_cast<int>(totalParts));
+        emit statusUpdated("Скачивание " + QString::fromStdString(fileId) + ": " + QString::number(partNumber) + "/" + QString::number(totalParts));
+    }
+}
+
+void MainWindow::onUploadFinished(const std::string& fileId, bool success, const std::string& message) {
+    emit statusUpdated(QString::fromStdString(message));
+    if (success) {
+        emit statusUpdated("Загрузка " + QString::fromStdString(fileId) + " завершена");
+        api_->listFiles();
+    }
+}
+
+void MainWindow::onDownloadFinished(const std::string& fileId, bool success, const std::string& message) {
+    emit statusUpdated(QString::fromStdString(message));
+    if (success) {
+        emit statusUpdated("Скачивание " + QString::fromStdString(fileId) + " завершено");
+    }
+}
+
+void MainWindow::onDeleteFinished(const std::string& fileId, bool success, const std::string& message) {
+    emit statusUpdated(QString::fromStdString(message));
+    if (success) {
+        emit fileRowRemoved(fileId);
+    }
+}
+
+void MainWindow::onListFilesResult(const std::vector<FileMetadata>& files) {
+    emit fileTableUpdated(files);
+    emit statusUpdated("Список файлов обновлён");
+}
+
+void MainWindow::onUploadComplete(const std::string& fileId) {
+    emit statusUpdated("Загрузка завершена: " + QString::fromStdString(fileId));
+}
+
+void MainWindow::onDownloadComplete(const std::string& fileId, const std::string& outputPath) {
+    emit statusUpdated("Скачивание завершено: " + QString::fromStdString(fileId) + " в " + QString::fromStdString(outputPath));
+}
+
+void MainWindow::onDeleteComplete(const std::string& fileId) {
+    emit statusUpdated("Файл удалён: " + QString::fromStdString(fileId));
+    emit fileRowRemoved(fileId);
+}
+
+void MainWindow::onError(const std::string& message) {
+    emit statusUpdated("Ошибка: " + QString::fromStdString(message));
+    QMessageBox::critical(this, "Ошибка", QString::fromStdString(message));
+}
+
+void MainWindow::onNodesUpdated(const std::vector<std::string>& nodes) {
+    emit nodeTableUpdated(nodes);
+}
+
+void MainWindow::onFilesUpdated([[maybe_unused]] const nlohmann::json& files) {
+    // Этот метод уже вызывает onListFilesResult
+}
+
+void MainWindow::updateProgressBar(int value, int maximum) {
+    if (maximum > 0) {
+        progressBar_->setMaximum(maximum);
+        progressBar_->setValue(value);
+    } else {
+        progressBar_->setMaximum(1);
+        progressBar_->setValue(0);
+    }
+}
+
+void MainWindow::updateStatusLabel(const QString& message) {
+    statusLabel_->setText(message);
+}
+
+void MainWindow::updateFileTable(const std::vector<FileMetadata>& files) {
     fileTable_->setRowCount(0);
-    int row = fileTable_->rowCount();
-    fileTable_->insertRow(row);
-    fileTable_->setItem(row, 0, new QTableWidgetItem("file_test"));
-    fileTable_->setItem(row, 1, new QTableWidgetItem("1024"));
-    statusLabel_->setText("Список файлов обновлен");
+    for (const auto& meta : files) {
+        int row = fileTable_->rowCount();
+        fileTable_->insertRow(row);
+        fileTable_->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(meta.id)));
+        fileTable_->setItem(row, 1, new QTableWidgetItem(QString::number(meta.size)));
+    }
+}
+
+void MainWindow::updateNodeTable(const std::vector<std::string>& nodes) {
+    nodeTable_->setRowCount(0);
+    for (const auto& node : nodes) {
+        int row = nodeTable_->rowCount();
+        nodeTable_->insertRow(row);
+        nodeTable_->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(node)));
+        nodeTable_->setItem(row, 1, new QTableWidgetItem("Активен"));
+    }
+}
+
+void MainWindow::removeFileRow(const std::string& fileId) {
+    for (int r = 0; r < fileTable_->rowCount(); ++r) {
+        if (fileTable_->item(r, 0)->text().toStdString() == fileId) {
+            fileTable_->removeRow(r);
+            break;
+        }
+    }
 }
