@@ -8,7 +8,7 @@
 #include "../../Network/client.h"
 #include "json_messages.cpp"
 
-std::string process_message(std::string&, Address);
+std::string process_message(std::string&);
 
 std::unordered_set<std::string> cluster_nodes;
 
@@ -16,12 +16,8 @@ namespace pt = boost::property_tree;
 
 
 
-void connect_to_cluster(Address address) {
-    std::string resp = 
-        Client::send_message_and_recieve_response(address, node_connected_message());
-
-    std::cout << "Cluster said - " << resp << std::endl;
-    process_message(resp, address);
+void connect_to_cluster(Address cluster_address, Address local_address) {
+    Client::send_message(cluster_address, node_connected_message(local_address));
 }
 
 
@@ -31,16 +27,15 @@ void connect_to_cluster(Address address) {
  * @param address адрес отправителя, например "127.0.0.1:1337"
  * @return ответ отправителю в виде json строки
  */
-std::string process_message(std::string& msg, Address address)
+std::string process_message(std::string& msg)
 {
-    std::cout << "reading json msg :" << msg << "\n"; 
     pt::ptree json = to_ptree(msg);
-    std::cout << "readed" << '\n'; 
     std::string type = json.get<std::string>("type");
-    std::cout << "type = " << type << '\n'; 
+    std::cout << "Packet type = " << type << '\n'; 
     if (type == "node_connected")
     {
-        cluster_nodes.insert(address.to_string());
+        std::string new_address = json.get<std::string>("node_address");
+        cluster_nodes.insert(new_address);
 
         // формируем json {nodes : [address1, address2...]}
         pt::ptree pt;
@@ -51,7 +46,8 @@ std::string process_message(std::string& msg, Address address)
 
         std::ostringstream oss;
         boost::property_tree::write_json(oss, pt);
-        return oss.str();
+        Client::brodcast_message(cluster_nodes, oss.str());
+        return "";
     }
     if (type == "nodes_cluster_list")
     {

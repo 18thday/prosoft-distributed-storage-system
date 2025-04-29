@@ -2,6 +2,7 @@
 #include <iostream>
 #include "boost/property_tree/ptree.hpp"
 #include "boost/property_tree/json_parser.hpp"
+#include "../../Network/utils.cpp"
 
 namespace pt = boost::property_tree;
 
@@ -18,7 +19,6 @@ pt::ptree to_ptree(std::string src)
 {
     std::stringstream ss(src);
     pt::ptree jsontree;
-    std::cout << "to_ptree function argument -> " << src << '\n';
     boost::property_tree::read_json(ss, jsontree);
     std::cout << "converted to ptree" << '\n';
     return jsontree;
@@ -51,11 +51,12 @@ Container ptree_to_container(pt::ptree& pt) {
 
 // === Функции для формирования сетевых json пакетов =====================
 
-//"{ "type" : "node_connected" }"
-std::string node_connected_message()
+//"{ "type" : "node_connected", "node_adress" : local_ip:port }"
+std::string node_connected_message(Address local_address)
 {
     pt::ptree pt;
-    pt.add("type","node-connected");
+    pt.add("type","node_connected");
+    pt.add("node_address", local_address.to_string());
 
     return to_json(pt);
 }

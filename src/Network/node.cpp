@@ -16,26 +16,27 @@ using net::ip::udp;
 static int server_loop(int port);
 static std::string get_local_ip();
 
-Node::Node(int port) : port{port}
+Node::Node(int port) : address(get_local_ip(), port)
 {
-    cluster_nodes.insert(get_local_ip());
+    cluster_nodes.insert(address.to_string());
     thread = std::thread([this]() { this->server_loop(); });
 }
 
-Node::Node(int port, Address address) : port{port}
+Node::Node(int port, Address cluster_address) : address(get_local_ip(), port)
 {
-    cluster_nodes.insert(get_local_ip());
+    cluster_nodes.insert(address.to_string());
     thread = std::thread([this]() { this->server_loop(); });
-    sleep(1);
-    connect_to_cluster(address);
+
+    sleep(0.1);
+    connect_to_cluster(cluster_address, address);
 }
 
 int Node::server_loop()
 {
-    std::cout << "Opening port" << port << std::endl;
+    std::cout << "Opening port" << address.port << std::endl;
     net::io_context io_context;
-    tcp::endpoint endpoint(tcp::v4(), port);
-    tcp::acceptor acceptor(io_context, endpoint, port);
+    tcp::endpoint endpoint(tcp::v4(), address.port);
+    tcp::acceptor acceptor(io_context, endpoint, address.port);
     tcp::socket socket = tcp::socket(io_context);
 
     while (true)
@@ -50,16 +51,20 @@ int Node::server_loop()
         }
 
         net::streambuf stream_buf;
-        net::read_until(socket, stream_buf, '\0', ec);
+        size_t bytes_read = boost::asio::read(socket, stream_buf, 
+            boost::asio::transfer_at_least(1), ec);
+        // net::read_until(socket, stream_buf, '\0', ec);
         std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
                                 std::istreambuf_iterator<char>()};
 
         std::cout << "Client said: " << client_data << std::endl;
 
-        tcp::endpoint remote_endpoint = socket.remote_endpoint();
-        Address address(remote_endpoint.address().to_string(), remote_endpoint.port());
+        // tcp::endpoint remote_endpoint = socket.remote_endpoint();
+        // Address address(remote_endpoint.address().to_string(), remote_endpoint.port());
 
-        std::string answer = process_message(client_data, address);
+        std::string answer = process_message(client_data);
+
+        std::cout << "Answering to client with: " << answer << std::endl;
 
         if (answer.length() == 0)
         {
@@ -70,6 +75,8 @@ int Node::server_loop()
 
         // answer to client
         socket.write_some(net::buffer(answer), ec);
+
+        std::cout << "Answered" << std::endl;
 
         if (ec) {
             std::cout << "Error sending data" << std::endl;
@@ -105,4 +112,12 @@ std::string get_local_ip() {
         }
     }
     freeifaddrs(ifaddr);
+}
+
+static std::string to_json_packet(pt::ptree pt)
+{
+    pt.add("address","node_connected");
+    std::stringstream str;
+    boost::property_tree::json_parser::write_json(str, pt);
+    return str.str();
 }

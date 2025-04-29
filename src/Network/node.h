@@ -4,7 +4,7 @@
 
 class Node {
 public:
-    const int port;
+    Address address;
     std::thread thread;
     Node() = delete;
     Node(int port);
