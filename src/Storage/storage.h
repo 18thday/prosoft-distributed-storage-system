@@ -1,42 +1,19 @@
-struct FilePart {
-    char* firstBytes;
-    size_t partSize;
-    size_t partNumber;
-}
+#ifndef STORAGE_H
+#define STORAGE_H
 
-class Storage
-{
+#include "types.h"
+#include <string>
+#include <vector>
+
+// Класс для работы с файлами
+class Storage {
 public:
-    Storage(const std::string& filePath); // , size_t partSizeInBytes)
-    //
-    /*struct FilePart {
-        std::string hash;      // Хэш блока (SHA-256)
-        std::vector<uint8_t> data;  // Бинарные данные
-    };*/
-    //структура для возвращения условного разделения
+    // Разделяет файл на части
+    static std::vector<FilePart> splitFile(const std::string& filePath, FileMetaData& metadata, size_t part_count);
+    // Объединяет части файла
+    static bool mergeFile(const std::vector<FilePart>& parts, const std::string& outputPath, const FileMetaData& metadata);
+    // Вычисляет хеш
+    static std::string calculateHash(const std::string& data);
+};
 
-    static std::vector<FilePart> splitFile(const std::string& filePath);
-    static void mergeFile(const std::std::vector<FilePart>, const std::string& outputPath);
-    std::vector<FilePart> reconfiguration ()
-
-    /*
-    
-    передали файл, возвращает мапы, объекты кусок файла 
-    указатель на кусочек и размер кусочка
-    распил реконфигурация
-    отправить кусок файла
-    принять кусок файла
-    соединение файла
-    */
-}
-
-/*
-вычислить хэш файла
-записать хэш файла в другой файл
-распилить файл по пути
-вычислить хэш для куска файла
-записать хэш куска файла
-
-
-
-*/
+#endif
