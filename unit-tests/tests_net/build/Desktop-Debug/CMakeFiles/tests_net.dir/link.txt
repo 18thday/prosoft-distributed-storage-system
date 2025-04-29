@@ -1,0 +1,1 @@
+/usr/bin/clang++-18 -DQT_QML_DEBUG -g CMakeFiles/tests_net.dir/main.cpp.o -o tests_net 

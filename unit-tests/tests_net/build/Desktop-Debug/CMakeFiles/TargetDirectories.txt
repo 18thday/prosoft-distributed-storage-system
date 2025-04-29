@@ -1,0 +1,4 @@
+/home/sami/coding/test_pdss/tests_net/build/Desktop-Debug/CMakeFiles/tests_net.dir
+/home/sami/coding/test_pdss/tests_net/build/Desktop-Debug/CMakeFiles/test.dir
+/home/sami/coding/test_pdss/tests_net/build/Desktop-Debug/CMakeFiles/edit_cache.dir
+/home/sami/coding/test_pdss/tests_net/build/Desktop-Debug/CMakeFiles/rebuild_cache.dir
