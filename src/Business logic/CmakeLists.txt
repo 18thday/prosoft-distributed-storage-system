@@ -1,0 +1,20 @@
+# Сбор всех заголовочных и исходных файлов, включая поддиректорию Kernel
+file(GLOB BUSINESS_HEADERS *.h Kernel/*.h)
+file(GLOB BUSINESS_SOURCES *.cpp Kernel/*.cpp)
+
+# Создание статической библиотеки business_logic
+add_library(business_logic STATIC ${BUSINESS_HEADERS} ${BUSINESS_SOURCES})
+
+# Установка директорий для включения заголовков
+target_include_directories(business_logic PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/Network
+    ${CMAKE_SOURCE_DIR}/src/Storage
+)
+
+# Линковка с зависимостями
+target_link_libraries(business_logic
+    PUBLIC network
+    PUBLIC storage
+    PUBLIC Qt5::Widgets
+)

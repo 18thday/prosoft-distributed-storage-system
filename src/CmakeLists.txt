@@ -1,0 +1,4 @@
+# Добавление подкаталогов с библиотеками
+add_subdirectory(Network)
+add_subdirectory(Storage)
+add_subdirectory("Business logic")

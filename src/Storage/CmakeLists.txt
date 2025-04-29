@@ -1,0 +1,12 @@
+# Сбор всех заголовочных и исходных файлов
+file(GLOB STORAGE_HEADERS *.h)
+file(GLOB STORAGE_SOURCES *.cpp)
+
+# Создание статической библиотеки storage
+add_library(storage STATIC ${STORAGE_HEADERS} ${STORAGE_SOURCES})
+
+# Установка директорий для включения заголовков
+target_include_directories(storage PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Линковка с Boost
+target_link_libraries(storage PUBLIC ${Boost_LIBRARIES})

@@ -1,13 +1,12 @@
-cmake_minimum_required(VERSION 3.22.1)
-project(psdss_network)
+# Сбор всех заголовочных и исходных файлов
+file(GLOB NETWORK_HEADERS *.h)
+file(GLOB NETWORK_SOURCES *.cpp)
 
-set(CMAKE_CXX_STANDARD 17)
+# Создание статической библиотеки network
+add_library(network STATIC ${NETWORK_HEADERS} ${NETWORK_SOURCES})
 
-find_package(Boost REQUIRED COMPONENTS system)
+# Установка директорий для включения заголовков
+target_include_directories(network PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-include_directories(${BOOST_INCLUDE_DIRS})
-
-add_executable(node node.cpp)
-add_executable(send_packet send_packet.cpp)
-
-target_link_libraries(${Boost_LIBRARIES})
+# Линковка с Boost
+target_link_libraries(network PUBLIC ${Boost_LIBRARIES})
