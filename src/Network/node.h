@@ -8,9 +8,8 @@ public:
     std::thread thread;
     Node() = delete;
     Node(int port);
-    Node(int port, Adress cluster_address);
+    Node(int port, Address cluster_address);
 
 private:
     int server_loop();
-    void connect_to_cluster(Adress);
 };

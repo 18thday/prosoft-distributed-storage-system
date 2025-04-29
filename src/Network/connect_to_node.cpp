@@ -12,13 +12,6 @@ int main(int argc, char** argv) {
     int port = std::stoi(argv[2]);
     std::string msg = argv[3];
 
-    Client c1(ip, port);
-
-    std::cout << "Connecting to server...\n";
-
-    c1.connect();
-    c1.send(msg);
-
-    std::cout << "Recieving from server...\n";
-    std::cout << c1.receive() << '\n';
+    std::string response = 
+        Client::send_message_and_recieve_response(Address(ip, port), msg);
 } 

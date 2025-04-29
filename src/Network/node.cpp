@@ -1,5 +1,8 @@
 #include <iostream>
 #include "boost/asio.hpp"
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "node.h"
 #include "client.h"
@@ -11,28 +14,20 @@ using net::ip::tcp;
 using net::ip::udp;
 
 static int server_loop(int port);
+static std::string get_local_ip();
 
 Node::Node(int port) : port{port}
 {
+    cluster_nodes.insert(get_local_ip());
     thread = std::thread([this]() { this->server_loop(); });
 }
 
-Node::Node(int port, Adress adress) : port{port}
+Node::Node(int port, Address address) : port{port}
 {
+    cluster_nodes.insert(get_local_ip());
     thread = std::thread([this]() { this->server_loop(); });
-    connect_to_cluster(adress);
-}
-
-void Node::connect_to_cluster(Adress adress) {
-    Client client(adress.ip, adress.port);
-    client.connect();
-
-    client.send("{\"type\":\"node_connected\"}");
-    std::string ans = client.receive();
-
-    std::cout << "Cluster said - " << ans << std::endl;
-
-    client.close();
+    sleep(1);
+    connect_to_cluster(address);
 }
 
 int Node::server_loop()
@@ -62,9 +57,16 @@ int Node::server_loop()
         std::cout << "Client said: " << client_data << std::endl;
 
         tcp::endpoint remote_endpoint = socket.remote_endpoint();
-        Adress address(remote_endpoint.address().to_string(), remote_endpoint.port());
+        Address address(remote_endpoint.address().to_string(), remote_endpoint.port());
 
-        std::string answer = process_message(client_data, address.to_string());
+        std::string answer = process_message(client_data, address);
+
+        if (answer.length() == 0)
+        {
+            // answer = "{\"type\":\"\"}";
+            socket.close();
+            continue;
+        }
 
         // answer to client
         socket.write_some(net::buffer(answer), ec);
@@ -76,4 +78,31 @@ int Node::server_loop()
 
         socket.close();
     }
+}
+
+std::string get_local_ip() {
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr)) {
+        perror("getifaddrs");
+        std::cout << "Local ip not found\n";
+        return "";
+    }
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) continue;
+        
+        int family = ifa->ifa_addr->sa_family;
+        if (family == AF_INET) { // IPv4
+            char ip[INET_ADDRSTRLEN];
+            auto addr = &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+            inet_ntop(AF_INET, addr, ip, INET_ADDRSTRLEN);
+            
+            if (!strcmp(ip, "127.0.0.1")) continue; // Пропускаем loopback
+            
+            std::cout << "Local ip - " << ifa->ifa_name << ": " << ip << "\n";
+            freeifaddrs(ifaddr);
+            return ip;
+        }
+    }
+    freeifaddrs(ifaddr);
 }

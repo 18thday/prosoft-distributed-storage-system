@@ -21,7 +21,7 @@ int main(int argc, char** argv)
     std::string cluster_ip = argv[2];
     int cluster_port = std::stoi(argv[3]);
     {
-        Node s1(port, Adress(cluster_ip, cluster_port));
+        Node s1(port, Address(cluster_ip, cluster_port));
         s1.thread.join();
     }
 }

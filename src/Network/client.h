@@ -7,7 +7,7 @@
 class Client {
 public:
     Client() = delete;
-    Client(const std::string& host, const int port);
+    Client(Address address);
 
     void connect(); 
     void close();
@@ -15,9 +15,12 @@ public:
     void send(const std::string& message);
     std::string receive();
 
+    static void send_message(Address address, std::string msg);
+    static std::string send_message_and_recieve_response(Address address, std::string msg);
+
 private:
     boost::asio::io_context io_context_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::ip::tcp::socket socket_;
-    Adress adress;
+    Address address;
 };

@@ -3,12 +3,12 @@
 #include <iostream>
 #include "boost/asio.hpp"
 
-struct Adress
+struct Address
 {
     std::string ip;
     int port;
     
-    Adress(std::string ip, int port)
+    Address(std::string ip, int port)
         :ip(ip), port(port)
     {
         boost::system::error_code ec;
