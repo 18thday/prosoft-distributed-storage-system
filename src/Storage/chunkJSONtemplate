@@ -1,0 +1,9 @@
+{
+    chunk:[{
+        "file_name": "example.bin",
+        "chunk_name": "example_1.part",
+        "chunk_number": 1,
+        "chunk_size": 1,
+        "encoded_data": "BASE64_ENCODED_DATA"
+        }]
+}

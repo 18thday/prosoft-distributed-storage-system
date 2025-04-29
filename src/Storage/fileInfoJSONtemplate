@@ -1,0 +1,12 @@
+{
+    "file_info": {
+        "file_name": "example.txt",
+        "file_size": 12345,
+        "file_hash": 67890,
+        "file_type": ".pdf",
+        "chunk_size": 32768,
+        "chunk_count": 12,
+        "creation_date": "",
+        "last_modified_date": ""
+    }
+}
