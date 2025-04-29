@@ -8,6 +8,7 @@ set(CMAKE_AUTOMOC ON)  # Автоматическая обработка Qt moc
 set(CMAKE_AUTORCC ON)  # Автоматическая обработка ресурсов Qt
 set(CMAKE_AUTOUIC ON)  # Автоматическая обработка .ui файлов Qt
 
+find_package(Boost REQUIRED COMPONENTS system filesystem)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Boost 1.71 REQUIRED COMPONENTS system)
 find_package(OpenSSL REQUIRED)
