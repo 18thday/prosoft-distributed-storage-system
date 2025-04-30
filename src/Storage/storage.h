@@ -16,6 +16,9 @@ public:
     static std::string getInfo(const std::string& file_info_path, const std::string& key);
     // Вычисляет хеш
     static std::string calculateHash(const std::string& data);
+    // Сохранение структуры в фаил
+    static std::string reciveData(const std::string& tempDir,
+    FileData data);
 };
 
 /*
