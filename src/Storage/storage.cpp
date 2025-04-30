@@ -180,6 +180,27 @@ std::string Storage::calculateHash(const std::string& data) {
     }
     return ss.str();
 }
+static std::string reciveData(const std::string& tempDir,
+    FileData data)
+{
+    std::string file_name(data.fileName);
+    fs::path file_path = /*tempDir + '/' + */file_name;
+    std::string file_part_path = tempDir + '/' + file_path.stem().string() + ".part";
+
+    boost::property_tree::ptree root;
+
+    boost::property_tree::ptree chunk_data;
+    chunk_data.put("emptyByte", data.emptyByte);
+    chunk_data.put("ipAddr", data.ipAddr);
+    chunk_data.put("fileName", data.fileName);
+    chunk_data.put("data", data.data);
+    chunk_data.put("dataSize", data.dataSize);
+
+    root.add_child("FileData", chunk_data);
+
+    boost::property_tree::write_json(file_part_path, root);
+    return tempDir;
+}
 
 /*
 #include <fstream>
