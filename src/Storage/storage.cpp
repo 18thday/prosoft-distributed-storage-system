@@ -1,3 +1,4 @@
+/*
 #include "storage.h"
 #include <openssl/sha.h>
 #include <fstream>
@@ -179,9 +180,9 @@ std::string Storage::calculateHash(const std::string& data) {
         ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
     }
     return ss.str();
-}
+}*/
 
-/*
+#include "storage.h"
 #include <fstream>
 #include <stdexcept> // Для std::runtime_error
 #include <cmath>
@@ -214,7 +215,7 @@ std::string Storage::splitFile(const std::string& filePath,
     {
         clearDirectory(chunkDir);
         fs::create_directories(chunkDir);
-    } else return nullptr; // решил перестраховаться возможно излишне
+    } else return ""; // решил перестраховаться возможно излишне
 
 
     std::ifstream inFile(filePath, std::ios::binary);
@@ -234,44 +235,51 @@ std::string Storage::splitFile(const std::string& filePath,
     /// основная логика
     for (size_t i = 0; i < numChunks; ++i)
     {
-        std::string chunkFilename = inputFile.stem().string() + "_" + std::to_string(i);
-        chunkFilename += ".part";  // Добавляем расширение, чтобы было понятно, что это часть файла
+        std::string chunkFilename = inputFile.stem().string() + "_" + std::to_string(i) + ".part";
 
         boost::filesystem::path chunkPath = chunkDir / chunkFilename;
 
+        std::ofstream outFile(chunkPath.string(), std::ios::binary);
+        if (!outFile.is_open()) {
+            throw std::runtime_error("Could not create output file: " + chunkPath.string());
+        }
+
         std::unique_ptr<char[]> buffer(new char[chunkSize]);
 
-        /// самое главное чтение бинарными кусками
+        /// самое главное - чтение бинарными кусками
         inFile.read(buffer.get(), chunkSize);
+        outFile.write(buffer.get(), inFile.gcount());
+
+        outFile.close();
         /// преобразуем прочитанное в формат для json
-        std::string encodedChunk = base64_encode(buffer.get(), inFile.gcount());
+        //std::string encodedChunk = base64_encode(buffer.get(), inFile.gcount());
 
         boost::hash_combine(hash, std::string(buffer.get(), inFile.gcount()));
 
         /// запись CHUNK в json
-        createChunkJson(inputFile.filename().string(),
-                        chunkFilename,
-                        i,
-                        inFile.gcount(),
-                        encodedChunk,
-                        chunkPath);
+        // createChunkJson(inputFile,
+        //                 chunkFilename,
+        //                 i,
+        //                 inFile.gcount(),
+        //                 encodedChunk,
+        //                 chunkPath);
     }
 
     /// создаем FileInfo
-    createFileInfoJson(inputFile.stem().string(),
+    createFileInfoJson(inputFile,
                        fileSize,
                        hash,
                        inputFile.extension().string(),
                        chunkSize,
                        numChunks,
                        chunkDir);
-
+    inFile.close();
     return chunkDir.string();
 }
 /// перегруженный метод с дефолтными параметрами
 std::string Storage::splitFile(const std::string& filePath)
 {
-    std::string chunkDir = splitFile(filePath, fs::temp_directory_path().string(), 32768);
+    std::string chunkDir = splitFile(filePath, fs::temp_directory_path().string(), 4096);
     return chunkDir;
 }
 
@@ -291,12 +299,12 @@ bool Storage::hasEnoughSpace(size_t fileSize, std::string tempDir)
     return spaceInfo.available >= fileSize;
 }
 
-void clearDirectory(const fs::path& dirPath)
+void Storage::clearDirectory(const fs::path& dirPath)
 {
     fs::remove_all(dirPath);
 }
 
-size_t calculateFileHash(const fs::path& filePath, const size_t& chunkSize)
+size_t Storage::calculateFileHash(const fs::path& filePath, const size_t& chunkSize)
 {
     std::ifstream inFile(filePath, std::ios::binary);
     if (!inFile.is_open()) {
@@ -327,9 +335,9 @@ std::string Storage::base64_encode(const char* data, size_t size) {
     return encoded;
 }
 
-void Storage::createChunkJson(const std::string& file_name,
+void Storage::createChunkJson(const fs::path& inputFile,
                               const std::string& chunk_name,
-                              int chunk_number,
+                              size_t chunk_number,
                               size_t chunk_size,
                               const std::string& data,
                               const fs::path& output_file)
@@ -340,7 +348,7 @@ void Storage::createChunkJson(const std::string& file_name,
 
     // Заполняем данные о части
     boost::property_tree::ptree chunk_data;
-    chunk_data.put("file_name", file_name);
+    chunk_data.put("file_name", inputFile.filename().string());
     chunk_data.put("chunk_name", chunk_name);
     chunk_data.put("chunk_number", chunk_number);
     chunk_data.put("chunk_size", chunk_size);
@@ -356,7 +364,7 @@ void Storage::createChunkJson(const std::string& file_name,
     boost::property_tree::write_json(output_file.string(), root);
 }
 
-void Storage::createFileInfoJson(const fs::path& file_name,
+void Storage::createFileInfoJson(const fs::path& inputFile,
                                  size_t file_size,
                                  size_t file_hash,
                                  const std::string& file_type,
@@ -366,11 +374,11 @@ void Storage::createFileInfoJson(const fs::path& file_name,
 {
     // Создаем дерево для JSON
     boost::property_tree::ptree root;
-    boost::property_tree::ptree file_info;
+    //boost::property_tree::ptree file_info;
 
     // Заполняем данные о файле
     boost::property_tree::ptree file_data;
-    file_data.put("file_name", file_name);
+    file_data.put("file_name", inputFile.stem().string());
     file_data.put("file_size", file_size);
     file_data.put("file_hash", file_hash);
     file_data.put("file_type", file_type);
@@ -380,107 +388,150 @@ void Storage::createFileInfoJson(const fs::path& file_name,
     file_data.put("last_modified_date", "");
 
     // Добавляем часть в массив
-    file_info.push_back(std::make_pair("", file_data));
+    //file_info.push_back(std::make_pair("", file_data));
 
     // Добавляем массив частей в корень
-    root.add_child("file_info", file_info);
+    root.add_child("file_info", file_data);
 
-    std::string outFile = output_file.stem().string() + ".info";
+    std::string outFile = outputDir.string() + "/" + inputFile.stem().string() + ".info";
+
     // Записываем JSON в файл
     boost::property_tree::write_json(outFile, root);
 }
-/*
-"file_info": {
-    "file_id": "unique_file_identifier",
-    "file_name": "example.txt",
-    "file_size": 102400,  // размер в байтах
-    "file_hash": "abc123hashvalue",  // хеш-сумма файла для проверки целостности
-    "creation_date": "2023-10-01T12:00:00Z",  // дата создания файла в формате ISO 8601
-    "last_modified_date": "2023-10-10T12:00:00Z",  // дата последнего изменения
-    "file_type": "text/plain",  // MIME-тип файла
-    "chunk_size": 10240,  // размер каждой части в байтах
 
+struct uploadState Storage::currentState = {-1, 0};
 
-*/
-/*
-void Storage::mergeFile(const std::vector<filePart2> fileParts,
-                        const std::string& tempDir,
-                        const std::string& outputPath)
+FileData Storage::uploadData(const std::string& splitFileDir,
+                             std::unordered_set<std::string> ipList)
 {
-    Переменная содержащая путь где нужно создать фаил + название файла.
-      Как возможная идея, хранить информацию о файле в перой ячейке вектора vector<filePart2>, но это еще надо обсудить.
-      В остальных ячейках данные о кусочках. Также вектор должен быть отсортирован.
-      В реализации этого метода попробовал использовать эту идею.
-      Имя файла предлагаю сохранть при его делении
+    fs::path dir(splitFileDir);
+    fs::path fileInfoJson;
+    std::vector<chunkGroup> chunkGroups;
+    FileData fileData = {};
 
-std::string filePath = outputPath + "/" + fileParts[0].fileName;
-//Проверка, достаточно ли места для будущего файла (не тестировал)
-size_t fileSize = 0;
-for (int i = 0; i < fileParts.size(); i++)
-{
-    fileSize += boost::filesystem::file_size(fileParts[i].partFilePath);
-}
-if (!hasEnoughSpace(fileSize, tempDir)) {
-    throw std::runtime_error("Not enough space on disk to split the file.");
-}
-
-// Создаем фаил с нужным названием в нужном месте, в бинарном режиме
-std::ofstream outFile(filePath, std::ios::binary);
-if (!outFile)
-{
-    throw std::runtime_error("Cannot open output file:" + outputPath);
-}
-// Создаем буфер размера 4096
-size_t bufferSize = 4096;
-std::vector<char> buffer(bufferSize);
-//Обрабатываем каждый входной фаил вытаскиявая информацию из вектора
-for (size_t i = 1; i < fileParts.size(); i++)
-{
-    //Открываем файл в бинарном режиме
-    std::ifstream inFile(fileParts[i].partFilePath, std::ios::binary);
-    if (!inFile)
+    if (currentState.lastChunkid < 0)
     {
-        throw std::runtime_error("Cannot open input file: " + fileParts[i].partFilePath);
+        for (const auto& entry : fs::directory_iterator(dir)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".info") {
+                fileInfoJson = entry;
+            }
+        }
+        currentState.totalChunks = std::stoi(getInfo(fileInfoJson.string(), "chunk_count"));
+        chunkGroups = groupChunksByNode(currentState.totalChunks, ipList);
     }
-    //Читаем фаил блоками
-    while (inFile.read(buffer.data(), buffer.size()))
+
+    fs::path chunkPath;
+    for (const auto& entry : fs::directory_iterator(dir))
     {
-        // Записываем в коенчный фаил прочитанный блок
-        outFile.write(buffer.data(), inFile.gcount());
+        if  (entry.is_regular_file() && entry.path().extension() == ".part")
+        {
+
+        }
     }
-    //Записываем оставшиеся данные(меньше размера буфера)
-    outFile.write(buffer.data(), inFile.gcount());
+
+
+    //FileData fileData = chunkToStruct(chunkPath, chunkIP);
+    if (currentState.lastChunkid > currentState.totalChunks)
+    {
+        currentState = {-1, 0};
+        memset(fileData.ipAddr, 0, sizeof(fileData.ipAddr));
+        memset(fileData.fileName, 0, sizeof(fileData.fileName));
+        memset(fileData.data, 0, sizeof(fileData.data));
+        fileData.dataSize = 0;
+        return fileData;
+    } else {
+        return chunkToStruct();
+    };
+    return fileData;
+
+    // currentState.totalChunks
+}
+
+FileData chunkToStruct(const fs::path& chunk,
+                       const std::string& ipAddr)
+{
+    FileData fileData;
+    fileData.emptyByte = 0;
+    std::ifstream inFile(chunk.string(), std::ios::binary);
+    if (!inFile.is_open())
+    {
+        //throw std::runtime_error("Ошибка: Не удалось открыть файл " + chunk.string());
+        return fileData; // Возвращаем структуру с нулевыми значениями
+    }
+
+    size_t fileSize = chunk.size();
+    if (fileSize > 32768)
+    {
+        return fileData;
+    }
+    std::unique_ptr<char[]> buffer(new char[32768]);
+    inFile.read(buffer.get(), fileSize);
+    size_t bytesRead = inFile.gcount();
+
+    strncpy(fileData.ipAddr, ipAddr.c_str(), sizeof(fileData.ipAddr) - 1);
+    fileData.ipAddr[sizeof(fileData.ipAddr) - 1] = '\0';
+
+    std::string fileName = chunk.filename().stem().string();
+
+    strncpy(fileData.fileName, fileName.c_str(), sizeof(fileData.fileName) - 1);
+    fileData.fileName[sizeof(fileData.fileName) - 1] = '\0';
+
+
+    memcpy(fileData.data, buffer.get(), bytesRead);
+    fileData.dataSize = bytesRead;
+
     inFile.close();
+    return fileData;
+    //outFile.write(buffer.get(), inFile.gcount());
 }
-outFile.close();
+
+std::vector<chunkGroup> Storage::groupChunksByNode(size_t totalChunks,
+                                                    std::unordered_set<std::string> ipList)
+{
+    std::vector<chunkGroup> chunkGroups;
+    if (ipList.size() < 4)
+    { //
+        auto it = ipList.begin();
+        int count = 0;
+        for (auto it = ipList.begin(); it != ipList.end() && count < 2; ++it, ++count) {
+            chunkGroup group;
+            group.chunkIdBegin = 0;
+            group.chunkIdEnd = totalChunks-1;
+            group.ipAddr = *it;
+            chunkGroups.push_back(group);
+        }
+
+    } else if (ipList.size() > 3){
+        auto it = ipList.begin();
+        int count = 0;
+        int firstHalfEnd = std::ceil(static_cast<double>(totalChunks) / 2);
+        for (auto it = ipList.begin(); it != ipList.end() && count < 4; ++it, ++count) {
+            chunkGroup group;
+            if (count < 3){
+                group.chunkIdBegin = 0;
+                group.chunkIdEnd = firstHalfEnd-1;
+                group.ipAddr = *it;
+                chunkGroups.push_back(group);
+            } else {
+                group.chunkIdBegin = firstHalfEnd;
+                group.chunkIdEnd = totalChunks-1;
+                group.ipAddr = *it;
+                chunkGroups.push_back(group);
+            }
+        }
+    };
 }
-*/
 
 
-
-
-/*
-    Для теста создал в папке три текстовых файла и рядом папку для объединенного файла
-
-int main() {
-    try {
-        std::vector <filePart2> testVec;
-        filePart2 first = { "test.txt", "0", "0"};
-        testVec.push_back(first);
-        filePart2 second = { "0","Part1.txt", "C:/Games/test parts/Part1.txt"};
-        filePart2 third = { "0","Part2.txt", "C:/Games/test parts/Part2.txt"};
-        filePart2 fourth = { "0","Part3.txt", "C:/Games/test parts/Part3.txt"};
-        testVec.push_back(second);
-        testVec.push_back(third);
-        testVec.push_back(fourth);
-        Storage::mergeFile(testVec, "C:/Games/test file");
-
-
-
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
-    }
-    return 0;
-}*/
+std::string Storage::getInfo(const std::string& file_info_path, const std::string& key)
+{
+    using namespace boost::property_tree;
+    /*
+     * Чтение файла .info и получение из него нужных данных по ключу
+     */
+    ptree read_file_info_path;
+    read_json(file_info_path, read_file_info_path);
+    auto parent = read_file_info_path.get_child("file_info");
+    std::string info = parent.get<std::string>(key);
+    return info;
+}
