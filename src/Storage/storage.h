@@ -11,7 +11,9 @@ public:
     // Разделяет файл на части
     static std::vector<FilePart> splitFile(const std::string& filePath, FileMetaData& metadata, size_t part_count);
     // Объединяет части файла
-    static bool mergeFile(const std::vector<FilePart>& parts, const std::string& outputPath, const FileMetaData& metadata);
+    static bool mergeFile(const std::string& tempDir, const std::string& outDir);
+    // Получение данных из файла .info
+    static std::string getInfo(const std::string& file_info_path, const std::string& key);
     // Вычисляет хеш
     static std::string calculateHash(const std::string& data);
 };
