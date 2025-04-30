@@ -1,7 +1,16 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <iostream>
 #include <boost/asio.hpp>
+
+struct FileData {
+    char emptyByte;
+    char ipAddr[30];
+    char fileName[256];
+    unsigned char data[32768];
+    size_t dataSize;
+};
 
 namespace net = boost::asio;
 using net::ip::tcp;
@@ -48,26 +57,27 @@ int get_packet_size(PacketType type)
     }
 }
 
-std::shared_ptr<BasePacket> read_packet(tcp::socket& socket) {
+std::shared_ptr<FileData> read_packet(tcp::socket& socket) {
     PacketType type;
     
     boost::system::error_code ec;
     size_t bytes_read = socket.read_some(
         net::buffer(&type, sizeof(type)), ec);
 
-    std::cout << "Readed packet type is : " << (int)type << '\n';
+    // std::cout << "Readed packet type is : " << (int)type << '\n';
 
     if (ec && ec != net::error::would_block) {
         throw boost::system::system_error(ec);
     }
 
-    auto pack = std::make_shared<BasePacket>();
-    pack->type = type;
-    int rest_size = get_packet_size(type) - sizeof(type);
+    auto pack = std::make_shared<FileData>();
+    pack->emptyByte = type;
+    // int rest_size = get_packet_size(type) - sizeof(type);
+    int rest_size = sizeof(FileData) - sizeof(type);
     if (rest_size == 0)
         return pack;
 
-    void* rest = (&pack->type) + sizeof(type);
+    void* rest = (&pack->emptyByte) + sizeof(type);
     char buf[rest_size];
 
     std::cout << "Rest of packet size -> " << rest_size << '\n';

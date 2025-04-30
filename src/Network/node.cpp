@@ -6,8 +6,10 @@
 
 #include "node.h"
 #include "client.h"
-// #include "../Business logic/Kernel/node_logic.h"
+#include "packets.h"
 #include "../Business logic/Kernel/node_logic.cpp"
+//TODO: link storage
+// #include "../Storage/storage.h"
 
 namespace net = boost::asio;
 using net::ip::tcp;
@@ -15,6 +17,7 @@ using net::ip::udp;
 
 static int server_loop(int port);
 static std::string get_local_ip();
+void read_chunk(char first, tcp::socket& socket);
 
 Node::Node(int port) : address(get_local_ip(), port)
 {
@@ -51,18 +54,39 @@ int Node::server_loop()
         }
 
         net::streambuf stream_buf;
-        size_t bytes_read = boost::asio::read(socket, stream_buf, 
-            boost::asio::transfer_at_least(1), ec);
-        // net::read_until(socket, stream_buf, '\0', ec);
-        std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
-                                std::istreambuf_iterator<char>()};
 
-        std::cout << "Client said: " << client_data << std::endl;
+        size_t bytes_read = boost::asio::read(socket, stream_buf, 
+            boost::asio::transfer_exactly(1), ec);
+
+        char ch = stream_buf.sgetc();
+        bool is_json = ch == '{';
+
+        std::cout << "Is this json?: " << is_json << std::endl;
+
+        std::string answer;
+        // net::read_until(socket, stream_buf, '\0', ec);
+        if (is_json)
+        {
+            bytes_read = boost::asio::read(socket, stream_buf, 
+                boost::asio::transfer_at_least(1), ec);
+            std::string client_data{std::istreambuf_iterator<char>(&stream_buf),
+                std::istreambuf_iterator<char>()};
+            std::cout << "Client said: " << client_data << std::endl;
+            answer = process_message(client_data);
+        }
+        else 
+        {
+            auto file = read_packet(socket);
+            std::cout << "Filename: " << file->fileName << '\n';
+            // std::cout << "Content: " << file->data << '\n';
+            //TODO: link storage
+            // Storage::reciveData("", *file);
+        }
+
 
         // tcp::endpoint remote_endpoint = socket.remote_endpoint();
         // Address address(remote_endpoint.address().to_string(), remote_endpoint.port());
 
-        std::string answer = process_message(client_data);
 
         std::cout << "Answering to client with: " << answer << std::endl;
 

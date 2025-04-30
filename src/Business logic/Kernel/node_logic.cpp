@@ -39,7 +39,7 @@ std::string process_message(std::string& msg)
 
         // формируем json {nodes : [address1, address2...]}
         pt::ptree pt;
-        pt.add("type", "nodes_cluster_list");
+        pt.add("type", "set_nodes_cluster_list");
 
         pt::ptree nodes = container_to_ptree(cluster_nodes);
         pt.add_child("nodes", nodes); // {"list": ["str1", "str2", ...]}
@@ -49,10 +49,22 @@ std::string process_message(std::string& msg)
         Client::brodcast_message(cluster_nodes, oss.str());
         return "";
     }
-    if (type == "nodes_cluster_list")
+    if (type == "set_nodes_cluster_list")
     {
         pt::ptree nodes = json.get_child("nodes");
         cluster_nodes = ptree_to_container<std::unordered_set<std::string>>(nodes);
+    }
+    if (type == "get_nodes_cluster_list")
+    {
+        pt::ptree pt;
+        pt.add("type", "nodes_cluster_list");
+
+        pt::ptree nodes = container_to_ptree(cluster_nodes);
+        pt.add_child("nodes", nodes); // {"list": ["str1", "str2", ...]}
+
+        std::ostringstream oss;
+        boost::property_tree::write_json(oss, pt);
+        return oss.str();
     }
     else if (type == "none")
         return "";

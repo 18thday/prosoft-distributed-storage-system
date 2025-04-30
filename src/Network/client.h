@@ -5,6 +5,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "utils.cpp"
 
+
 class Client {
 public:
     Client() = delete;
@@ -15,6 +16,8 @@ public:
 
     void send(const std::string& message);
     std::string receive();
+
+    boost::asio::ip::tcp::socket& get_socket();
 
     static void send_message(Address address, std::string msg);
     static std::string send_message_and_recieve_response(Address address, std::string msg);

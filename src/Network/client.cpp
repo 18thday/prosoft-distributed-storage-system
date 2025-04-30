@@ -1,4 +1,4 @@
-
+#pragma once
 #include <boost/asio.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <iostream>
@@ -68,9 +68,13 @@ void Client::close() {
     socket_.close();
 }
 
+boost::asio::ip::tcp::socket& Client::get_socket()
+{
+    return this->socket_;
+}
+
 void Client::send_message(Address address, std::string msg)
 {
-    std::cout << "Sending to server\n";
     Client c1(address);
 
     std::cout << "Connecting to server...\n";
@@ -107,39 +111,3 @@ void Client::brodcast_message(std::unordered_set<std::string> addresses, std::st
     }
 }
 
-bool Client::is_tcp_connection_possible(Address address) {
-    net::io_context io_context;
-    tcp::socket socket(io_context);
-
-    try {
-        // Пытаемся соединиться с удалённым хостом
-       tcp::endpoint endpoint(
-            boost::asio::ip::make_address(address.ip), address.port 
-        );
-
-        socket.open(tcp::v4());  // Открываем сокет (IPv4)
-        // socket.set_option(tcp::socket::reuse_address(true));
-
-        // Устанавливаем таймаут на соединение (чтобы не ждать слишком долго)
-        boost::asio::deadline_timer timer(io_context);
-        timer.expires_from_now(boost::posix_time::seconds(3)); // 3 секунды
-        timer.async_wait([&socket](const boost::system::error_code&) {
-            socket.close();  // Принудительно закрываем сокет по таймауту
-        });
-
-        // Пробуем подключиться
-        socket.async_connect(endpoint, [](const boost::system::error_code& ec) {
-            // Колбэк сработает при успехе/ошибке
-        });
-
-        io_context.run();  // Запускаем обработку асинхронных операций
-
-        if (socket.is_open()) {
-            socket.close();
-            return true;  // Соединение успешно
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Keep alive error: " << e.what() << std::endl;
-    }
-    return false;  // Не удалось соединиться
-}
