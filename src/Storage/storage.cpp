@@ -6,9 +6,15 @@
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
-
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <algorithm> // для std::remove
+#include <stdexcept> // Для std::runtime_error
 // Подключаем библиотеки для работы с файлами и хешированием
 namespace fs = std::filesystem;
+namespace pt = boost::property_tree;
 
 // Разделяет файл на части
 std::vector<FilePart> Storage::splitFile(const std::string& filePath, FileMetaData& metadata, size_t nodesCount) {
@@ -61,71 +67,107 @@ std::vector<FilePart> Storage::splitFile(const std::string& filePath, FileMetaDa
 }
 
 // Объединяет части файла
-bool Storage::mergeFile(const std::vector<FilePart>& parts, const std::string& outputPath, const FileMetaData& metadata) {
-    if (parts.empty()) {
-        std::cerr << "No parts provided for merging\n";
-        return false;
-    }
+bool Storage::mergeFile(const std::string& tempDir, const std::string& outDir) {
+/*
+ * Ищем в директории tempDir фаил с необходимым расширением .info
+ */
+ std::string file_info_path;
+ for (const auto& entry : fs::directory_iterator(tempDir))
+ {
+         if (entry.path().filename().string().find(".info") != std::string::npos)
+         {
+             file_info_path = tempDir + '/' + entry.path().filename().string();
+             break;
+         }
 
-    // Проверяем хеши частей
-    for (const auto& part : parts) {
-        std::ifstream part_file(part.file_path, std::ios::binary);
-        if (!part_file) {
-            std::cerr << "Failed to open part file: " << part.file_path << "\n";
-            return false;
-        }
-        std::vector<char> buffer(fs::file_size(part.file_path));
-        part_file.read(buffer.data(), buffer.size());
-        part_file.close();
-        std::string data(buffer.data(), buffer.size());
-        std::string computed_hash = calculateHash(data);
-        if (computed_hash != part.hash) {
-            std::cerr << "Hash mismatch for part " << part.part_index << ": expected " << part.hash
-                      << ", got " << computed_hash << "\n";
-            return false;
-        }
-    }
+ }
+ /*
+  * Достаем из файла .info всю необходимую информацию
+  */
+ std::string file_name = Storage::getInfo(file_info_path, "file_name");
+ std::string file_type = Storage::getInfo(file_info_path, "file_type");
+ int chunk_count = std::stoi(Storage::getInfo(file_info_path, "chunk_count"));
+ size_t chunk_size = std::stoi(Storage::getInfo(file_info_path, "chunk_size"));
+ std::string file_hash = Storage::getInfo(file_info_path, "file_hash");
+ std::string filePath = outDir + "/" + file_name + file_type;
+ 
 
-    // Сортируем части по индексу
-    std::vector<FilePart> sorted_parts = parts;
-    std::sort(sorted_parts.begin(), sorted_parts.end(),
-              [](const FilePart& a, const FilePart& b) { return a.part_index < b.part_index; });
+ // Создаем фаил с нужным названием в нужном месте, в бинарном режиме
+ std::ofstream outFile(filePath, std::ios::binary);
+ if (!outFile)
+ {
+	throw std::runtime_error("Cannot open output file:" + outDir);
+ }
+ // Создаем буфер размера chunk_size
+ size_t bufferSize = chunk_size;
+ std::vector<char> buffer(bufferSize);
+ /*
+  * Получаем путь к файлам .part и удаляем фрагмент строки с порядковым номером и расширением "0.part"
+  * Это необходимо чтобы далее в цикле перебирать все файлы по пордяку
+  */
+ std::string part_path;
+ for (const auto& entry_part : fs::directory_iterator(tempDir))
+ {
+     if (entry_part.path().filename().string().find(".part") != std::string::npos)
+     {
+         part_path = tempDir + '/' + entry_part.path().filename().string();
+         break;
+     }
 
-    // Собираем файл
-    std::ofstream out(outputPath, std::ios::binary);
-    if (!out) {
-        std::cerr << "Failed to open output file: " << outputPath << "\n";
-        return false;
-    }
+ }
+ /*
+ * Удаление порядкрого номера и расширения "0.part" из пути файла
+ */
+ size_t pos;
+ std::string part_type_delete = "0.part";
+ while ((pos = part_path.find(part_type_delete)) != std::string::npos) {
+     part_path.erase(pos, part_type_delete.length());
+ }
+ 
+ //Обрабатываем каждый входной фаил
+ for (size_t i = 0; i < chunk_count; i++)
+ {
+   
+     //Открываем файл в бинарном режиме
+     std::ifstream inFile((part_path + std::to_string(i) + ".part"), std::ios::binary);
+     if (!inFile)
+     {
+         throw std::runtime_error("Cannot open input file: " + (part_path + std::to_string(i) + ".part"));
+     }
 
-    std::string final_data;
-    for (const auto& part : sorted_parts) {
-        std::ifstream part_file(part.file_path, std::ios::binary);
-        if (!part_file) {
-            std::cerr << "Failed to open part file: " << part.file_path << "\n";
-            out.close();
-            fs::remove(outputPath);
-            return false;
-        }
-        std::vector<char> buffer(fs::file_size(part.file_path));
-        part_file.read(buffer.data(), buffer.size());
-        final_data.append(buffer.data(), buffer.size());
-        out.write(buffer.data(), buffer.size());
-        part_file.close();
-    }
-    out.close();
-
-    // Проверяем хеш итогового файла
-    std::string final_hash = calculateHash(final_data);
-    std::cout << "Computed file hash in mergeFile: " << final_hash << ", expected: " << metadata.hash << "\n";
-    if (final_hash != metadata.hash) {
-        std::cerr << "Final file hash mismatch: expected " << metadata.hash << ", got " << final_hash << "\n";
-        fs::remove(outputPath);
-        return false;
-    }
-
+     //Читаем фаил блоками
+     while (inFile.read(buffer.data(), buffer.size()))
+     {
+         // Записываем в коенчный фаил прочитанный блок
+         outFile.write(buffer.data(), inFile.gcount());
+     }
+   
+     //Записываем оставшиеся данные(меньше размера буфера)
+     outFile.write(buffer.data(), inFile.gcount());
+     inFile.close();
+ }
+ outFile.close();
+std::string merge_file_hash = calculateHash(filePath);
+ std::cout << "Computed file hash in mergeFile: " << merge_file_hash << ", expected: " << file_hash << "\n";
+ if (merge_file_hash != file_hash)
+ {
+     std::cerr << "Final file hash mismatch: expected " << file_hash << ", got " << merge_file_hash << "\n";
+     fs::remove(outDir);
+     return false;
+ }
     std::cout << "File merged successfully: " << outputPath << "\n";
     return true;
+}
+std::string Storage::getInfo(const std::string& file_info_path, const std::string& key)
+{
+    /*
+     * Чтение файла .info и получение из него нужных данных по ключу
+     */
+    pt::ptree read_file_info_path;
+    pt::read_json(file_info_path, read_file_info_path);
+    auto parent = read_file_info_path.get_child("file_info");
+    std::string info = parent.get<std::string>(key);
+    return info;
 }
 
 // Вычисляет SHA-256 хеш
