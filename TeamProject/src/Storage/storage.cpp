@@ -8,22 +8,14 @@ namespace fs = boost::filesystem;
 namespace pt = boost::property_tree;
 
 struct uploadState Storage::currentState = {-1};
-FileData Storage::uploadData(const std::string& fileName,
+FileData Storage::uploadData(const std::string& tempDir,
                              const pt::ptree& fileInfo,
                              const std::string& clientIP = "")
 {
     FileData fileData = {};
-    fs::path chunksDir = fs::temp_directory_path() / (fileName + "_chunks");
-    if (!fs::exists(chunksDir) || !fs::is_directory(chunksDir))
-    {
-        std::cerr << "Сouldn't find the directory: " << chunksDir.string() << std::endl;
-        currentState = {-1};
-        return fileData;
-    }
 
     int secondHalfBegin;
     fs::path chunkPath;
-
 
     if (currentState.lastChunkid < 0)
     {
@@ -35,6 +27,7 @@ FileData Storage::uploadData(const std::string& fileName,
         }
         currentState.totalChunks = std::stoi(file_info.get<std::string>("chunk_count"));
         //currentState.totalChunks = file_info.get<size_t>("chunk_count");
+        currentState.fileName = file_info.get<std::string>("file_name");
         currentState.ipList.push_back(file_info.get<std::string>("first_half_ip1"));
         currentState.ipList.push_back(file_info.get<std::string>("first_half_ip2"));
         currentState.ipList.push_back(file_info.get<std::string>("second_half_ip1"));
@@ -56,6 +49,14 @@ FileData Storage::uploadData(const std::string& fileName,
         } else {
             currentState.lastChunkid = 0;
         }
+    }
+
+    fs::path chunksDir = tempDir + "/PSDSSstorage/" + fileName + "_chunks";
+    if (!fs::exists(chunksDir) || !fs::is_directory(chunksDir))
+    {
+        std::cerr << "Сouldn't find the directory: " << chunksDir.string() << std::endl;
+        currentState = {-1};
+        return fileData;
     }
 
     chunkPath = chunksDir / (fileName + "_" + std::to_string(currentState.lastChunkid) + ".part");
@@ -87,7 +88,7 @@ FileData Storage::uploadData(const std::string& fileName,
 }
 
 std::string reciveData(const std::string& tempDir,
-                              const FileData& data)
+                       const FileData& data)
 {
     std::string file_name(data.fileName);
     size_t lastUnderscorePos = file_name.find_last_of('_');
@@ -452,7 +453,7 @@ FileData chunkToStruct(const fs::path& chunk,
     inFile.close();
     return fileData;
 }
-/// требуется дорааботка
+
 chunkGroups Storage::groupChunksByNode(std::unordered_set<std::string>& ipList)
 {
     chunkGroups chunkGroups;

@@ -26,9 +26,10 @@ struct FileData {
 struct uploadState{
     int lastChunkid;
     size_t totalChunks;
+    std::string fileName;
     std::vector<std::string> ipList;
     bool sendToIp2;
-    bool imNode;
+    //bool imNode;
     //const boost::property_tree::ptree& fileInfo;
 };
 
@@ -57,7 +58,7 @@ public:
      * @param splitFileDir Директория с частями файлов.
      * @return std::string Содержимое каждого отдельного файла в виде строки.
      */
-    static FileData uploadData(const std::string& fileName,
+    static FileData uploadData(const std::string& tempDir,
                                const boost::property_tree::ptree& fileInfo,
                                const std::string& clientIP);
 
