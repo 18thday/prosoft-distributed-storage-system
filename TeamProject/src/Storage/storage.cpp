@@ -453,64 +453,39 @@ FileData chunkToStruct(const fs::path& chunk,
     return fileData;
 }
 /// требуется дорааботка
-chunkGroups Storage::groupChunksByNode(size_t totalChunks,
-                                        std::unordered_set<std::string>& ipList)
+chunkGroups Storage::groupChunksByNode(std::unordered_set<std::string>& ipList)
 {
     chunkGroups chunkGroups;
     //std::string ip1, ip2; // заглушка
-    std::vector<std::string> ipVector(ipList.begin(), ipList.end());
-    chunkGroups.ipAddr1 = ipVector[0];
-    chunkGroups.ipAddr2 = ipVector[1];
-    chunkGroups.ipAddr3 = ipVector[0];
-    chunkGroups.ipAddr4 = ipVector[1];
+    std::vector<std::string> ipVector;
+    
+    int count = 0;
+    for(auto& ipAddr : ipList)
+    {
+        if (count >= 4) break;
+        if (count >= 2 && ipList.size() < 4) break;
+        ipVector.push_back(ipAddr);
+        count++;
+    }
+    if (ipVector.size() == 1)
+    { // ipAddr 1, 2 - для первой половины файла
+      // ipAddr 3, 4 - для второй половины файла
+        chunkGroups.ipAddr1 = ipVector[0];
+        chunkGroups.ipAddr2 = ipVector[0];
+        chunkGroups.ipAddr3 = ipVector[0];
+        chunkGroups.ipAddr4 = ipVector[0];
+    } else if (ipVector.size() == 2) {
+        chunkGroups.ipAddr1 = ipVector[0];
+        chunkGroups.ipAddr2 = ipVector[1];
+        chunkGroups.ipAddr3 = ipVector[0];
+        chunkGroups.ipAddr4 = ipVector[1];
+    } else if (ipVector.size() == 4) {
+        chunkGroups.ipAddr1 = ipVector[0];
+        chunkGroups.ipAddr2 = ipVector[1];
+        chunkGroups.ipAddr3 = ipVector[2];
+        chunkGroups.ipAddr4 = ipVector[3];
+    } else return chunkGroups;
 
-
-    //if (ipList.size() < 4)
-    //{ //
-    //    int count = 0;
-    //    // auto it = ipList.begin();
-    //    // for (auto it = ipList.begin(); it != ipList.end() && count < 2; ++it, ++count) {
-    //    // for (auto& ipAddr : ipList) {
-    //    //     chunkGroup group;
-    //    //     group.chunkIdBegin = 0;
-    //    //     group.chunkIdEnd = totalChunks-1;
-    //    //     group.ipAddr = *it;
-    //    //     chunkGroups.push_back(group);
-    //    // }
-    //    for (auto& ipAddr : ipList) {
-    //        if (count >= 2) break;
-
-    //        // chunkGroup group;
-    //        // group.chunkIdBegin = 0;
-    //        // group.chunkIdEnd = totalChunks - 1;
-    //        // group.ipAddr = ipAddr;
-    //        // chunkGroups.push_back(group);
-    //        // count++;
-    //    }
-
-    //} else if (ipList.size() > 3){
-    //    auto it = ipList.begin();
-    //    int count = 0;
-    //    int secondHalfBegin = std::ceil(static_cast<double>(totalChunks) / 2);
-    //    for (auto& ipAddr : ipList)
-    //    {
-    //        if (count >= 4) break;
-    //        // chunkGroup group;
-
-    //        // if (count < 2){ // для первых 2 ip
-    //        //     group.chunkIdBegin = 0;
-    //        //     group.chunkIdEnd = secondHalfBegin-1;
-    //        //     group.ipAddr = ipAddr;
-    //        //     chunkGroups.push_back(group);
-    //        // } else {
-    //        //     group.chunkIdBegin = secondHalfBegin;
-    //        //     group.chunkIdEnd = totalChunks-1;
-    //        //     group.ipAddr = ipAddr;
-    //        //     chunkGroups.push_back(group);
-    //        // }
-    //    }
-
-    //};
     return chunkGroups;
 }
 

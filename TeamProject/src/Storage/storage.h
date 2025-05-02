@@ -191,8 +191,7 @@ private:
                                   const std::string& ipAddr);
     static struct uploadState currentState;
 
-    static chunkGroups groupChunksByNode(size_t totalChunks,
-                                         std::unordered_set<std::string>& ipList);
+    static chunkGroups groupChunksByNode(std::unordered_set<std::string>& ipList);
 
     static std::string getInfo(const std::string& file_info_path, const std::string& key);
 };
