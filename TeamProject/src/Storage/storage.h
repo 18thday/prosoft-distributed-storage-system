@@ -32,10 +32,13 @@ struct uploadState{
     //const boost::property_tree::ptree& fileInfo;
 };
 
-struct chunkGroup{
-    std::string ipAddr;
-    int chunkIdBegin;
-    int chunkIdEnd;
+struct chunkGroups{
+    std::string ipAddr1; // первая половина
+    std::string ipAddr2; // первая половина резерв
+    std::string ipAddr3; // вторая половина
+    std::string ipAddr4; // вторая половина резерв
+    //int chunkIdBegin;
+    //int chunkIdEnd;
     //std::vector<std::string> ipList;
 };
 
@@ -56,7 +59,6 @@ public:
      */
     static FileData uploadData(const std::string& fileName,
                                const boost::property_tree::ptree& fileInfo,
-                               //std::unordered_set<std::string> ipList);
                                const std::string& clientIP);
 
     /**
@@ -75,15 +77,17 @@ public:
      * @param chunkSize Размер каждой части в байтах.
      * @return std::string Путь к директории с частями файлов.
      */
-    static std::string splitFile(const std::string& filePath,
-                                 const std::string& tempDir,
-                                 const size_t chunkSize);
+    static boost::property_tree::ptree splitFile(const std::string& filePath,
+                                                 const std::string& tempDir,
+                                                 const size_t chunkSize,
+                                                 std::unordered_set<std::string>& ipList);
     /**
       * @brief Деление файла на части c дефолтными параметрами
       * @param filePath Путь к файлу
       * @return std::vector<FilePart> Возвращаем вектор структур с заполненными данными деления
     */
-    static std::string splitFile(const std::string& filePath);
+    //static boost::property_tree::ptree splitFile(const std::string& filePath,
+    //                                             const std::unordered_set<std::string>& ipList);
 
     /**
       * @brief Объединение кусков файла в единый
@@ -146,13 +150,14 @@ private:
      * @param chunk_count Количество частей.
      * @param outputDir Директория для сохранения JSON.
      */
-    static void createFileInfoJson(const boost::filesystem::path& inputFile,
-                                   size_t file_size,
-                                   size_t file_hash,
-                                   const std::string& file_type,
-                                   size_t chunk_size,
-                                   size_t chunk_count,
-                                   const boost::filesystem::path& outputDir);
+    static boost::property_tree::ptree createFileInfoJson(const boost::filesystem::path& inputFile,
+                                                          size_t file_size,
+                                                          size_t file_hash,
+                                                          const std::string& file_type,
+                                                          size_t chunk_size,
+                                                          size_t chunk_count,
+                                                          const boost::filesystem::path& outputDir,
+                                                          const chunkGroups& ipList);
 
     /**
      * @brief Изменяет JSON файл (функция в разработке).
@@ -186,8 +191,8 @@ private:
                                   const std::string& ipAddr);
     static struct uploadState currentState;
 
-    static std::vector<chunkGroup> groupChunksByNode(size_t totalChunks,
-                                                     std::unordered_set<std::string> ipList);
+    static chunkGroups groupChunksByNode(size_t totalChunks,
+                                         std::unordered_set<std::string>& ipList);
 
     static std::string getInfo(const std::string& file_info_path, const std::string& key);
 };

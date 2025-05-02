@@ -16,7 +16,7 @@ FileData Storage::uploadData(const std::string& fileName,
     fs::path chunksDir = fs::temp_directory_path() / (fileName + "_chunks");
     if (!fs::exists(chunksDir) || !fs::is_directory(chunksDir))
     {
-        std::cerr << "Сouldn't find the directory: " << chunksDir.string();
+        std::cerr << "Сouldn't find the directory: " << chunksDir.string() << std::endl;
         currentState = {-1};
         return fileData;
     }
@@ -86,8 +86,7 @@ FileData Storage::uploadData(const std::string& fileName,
     return fileData;
 }
 
-
-static std::string reciveData(const std::string& tempDir,
+std::string reciveData(const std::string& tempDir,
                               const FileData& data)
 {
     std::string file_name(data.fileName);
@@ -112,23 +111,26 @@ static std::string reciveData(const std::string& tempDir,
     return chunksDir.string();
 }
 
-std::string Storage::splitFile(const std::string& filePath,
-                               const std::string& tempDir,
-                               const size_t chunkSize)
+pt::ptree Storage::splitFile(const std::string& filePath,
+                             const std::string& tempDir,
+                             const size_t chunkSize,
+                             std::unordered_set<std::string>& ipList)
 {
     fs::path inputFile(filePath);
+    pt::ptree fileInfoJson;
     if (!fs::exists(inputFile))
     {
-        throw std::runtime_error("File not found: " + filePath);
+        std::cerr << "File not found: " << filePath << std::endl;
+        return fileInfoJson;
     }
 
     fs::path tempDir_(tempDir);
     if (!fs::exists(tempDir_) || !fs::is_directory(tempDir_))
     {
-        throw std::runtime_error("Temporary directory is not valid: " + tempDir);
+        std::cerr << "Temporary directory is not valid: " << tempDir << std::endl;
+        return fileInfoJson;
     }
 
-    // std::string sanitizedFilename = sanitizeFilename(inputFile.filename().string());
     fs::path chunkDir = tempDir + "/PDSSstorage/" + inputFile.stem().string() + "_chunks";
     if (!fs::exists(chunkDir))
     {
@@ -137,12 +139,13 @@ std::string Storage::splitFile(const std::string& filePath,
     {
         clearDirectory(chunkDir);
         fs::create_directories(chunkDir);
-    } else return ""; // решил перестраховаться возможно излишне
+    } else return fileInfoJson; // решил перестраховаться возможно излишне
 
 
     std::ifstream inFile(filePath, std::ios::binary);
     if (!inFile.is_open()) {
-        throw std::runtime_error("Could not open input file: " + filePath);
+        std::cerr << "Could not open input file: " << tempDir << std::endl;
+        return fileInfoJson;
     }
 
     size_t fileSize = fs::file_size(inputFile);
@@ -150,6 +153,12 @@ std::string Storage::splitFile(const std::string& filePath,
     //     throw std::runtime_error("Not enough space on disk to split the file.");
     // }
     size_t numChunks = static_cast<size_t>(std::ceil(static_cast<double>(fileSize) / chunkSize)); // Округление вверх
+    std::cout << "The file size (byte): " << fileSize << std::endl;
+    std::cout << "Chunks will be created: " << numChunks << std::endl;
+
+
+
+
 
     /// дублирую здесь вычисление хэша чтобы не читать файл 2 раза
     size_t hash = 0;
@@ -173,37 +182,30 @@ std::string Storage::splitFile(const std::string& filePath,
         outFile.write(buffer.get(), inFile.gcount());
 
         outFile.close();
-        /// преобразуем прочитанное в формат для json
-        //std::string encodedChunk = base64_encode(buffer.get(), inFile.gcount());
 
         boost::hash_combine(hash, std::string(buffer.get(), inFile.gcount()));
-
-        /// запись CHUNK в json
-        // createChunkJson(inputFile,
-        //                 chunkFilename,
-        //                 i,
-        //                 inFile.gcount(),
-        //                 encodedChunk,
-        //                 chunkPath);
     }
 
+
+    chunkGroups distributionIpList = groupChunksByNode(numChunks, ipList);
     /// создаем FileInfo
-    createFileInfoJson(inputFile,
-                       fileSize,
-                       hash,
-                       inputFile.extension().string(),
-                       chunkSize,
-                       numChunks,
-                       chunkDir);
+    fileInfoJson = createFileInfoJson(inputFile,
+                                        fileSize,
+                                        hash,
+                                        inputFile.extension().string(),
+                                        chunkSize,
+                                        numChunks,
+                                        chunkDir,
+                                        distributionIpList);
     inFile.close();
-    return chunkDir.string();
+    return fileInfoJson;
 }
 /// перегруженный метод с дефолтными параметрами
-std::string Storage::splitFile(const std::string& filePath)
-{
-    std::string chunkDir = splitFile(filePath, fs::temp_directory_path().string(), 4096);
-    return chunkDir;
-}
+// pt::ptree Storage::splitFile(const std::string& filePath)
+// {
+    // pt::ptree splitResult = splitFile(filePath, fs::temp_directory_path().string(), 4096);
+    // return splitResult;
+// }
 
 
 // Объединяет части файла
@@ -373,16 +375,17 @@ void Storage::createChunkJson(const fs::path& inputFile,
     boost::property_tree::write_json(output_file.string(), root);
 }
 
-void Storage::createFileInfoJson(const fs::path& inputFile,
+pt::ptree Storage::createFileInfoJson(const fs::path& inputFile,
                                  size_t file_size,
                                  size_t file_hash,
                                  const std::string& file_type,
                                  size_t chunk_size,
                                  size_t chunk_count,
-                                 const fs::path& outputDir)
+                                 const fs::path& outputDir,
+                                 const chunkGroups& iplist)
 {
     // Создаем дерево для JSON
-    boost::property_tree::ptree root;
+    pt::ptree root;
     //boost::property_tree::ptree file_info;
 
     // Заполняем данные о файле
@@ -449,42 +452,65 @@ FileData chunkToStruct(const fs::path& chunk,
     inFile.close();
     return fileData;
 }
-
-std::vector<chunkGroup> Storage::groupChunksByNode(size_t totalChunks,
-                                                   std::unordered_set<std::string> ipList)
+/// требуется дорааботка
+chunkGroups Storage::groupChunksByNode(size_t totalChunks,
+                                        std::unordered_set<std::string>& ipList)
 {
-    std::vector<chunkGroup> chunkGroups;
-    if (ipList.size() < 4)
-    { //
-        auto it = ipList.begin();
-        int count = 0;
-        for (auto it = ipList.begin(); it != ipList.end() && count < 2; ++it, ++count) {
-            chunkGroup group;
-            group.chunkIdBegin = 0;
-            group.chunkIdEnd = totalChunks-1;
-            group.ipAddr = *it;
-            chunkGroups.push_back(group);
-        }
+    chunkGroups chunkGroups;
+    //std::string ip1, ip2; // заглушка
+    std::vector<std::string> ipVector(ipList.begin(), ipList.end());
+    chunkGroups.ipAddr1 = ipVector[0];
+    chunkGroups.ipAddr2 = ipVector[1];
+    chunkGroups.ipAddr3 = ipVector[0];
+    chunkGroups.ipAddr4 = ipVector[1];
 
-    } else if (ipList.size() > 3){
-        auto it = ipList.begin();
-        int count = 0;
-        int firstHalfEnd = std::ceil(static_cast<double>(totalChunks) / 2);
-        for (auto it = ipList.begin(); it != ipList.end() && count < 4; ++it, ++count) {
-            chunkGroup group;
-            if (count < 3){
-                group.chunkIdBegin = 0;
-                group.chunkIdEnd = firstHalfEnd-1;
-                group.ipAddr = *it;
-                chunkGroups.push_back(group);
-            } else {
-                group.chunkIdBegin = firstHalfEnd;
-                group.chunkIdEnd = totalChunks-1;
-                group.ipAddr = *it;
-                chunkGroups.push_back(group);
-            }
-        }
-    };
+
+    //if (ipList.size() < 4)
+    //{ //
+    //    int count = 0;
+    //    // auto it = ipList.begin();
+    //    // for (auto it = ipList.begin(); it != ipList.end() && count < 2; ++it, ++count) {
+    //    // for (auto& ipAddr : ipList) {
+    //    //     chunkGroup group;
+    //    //     group.chunkIdBegin = 0;
+    //    //     group.chunkIdEnd = totalChunks-1;
+    //    //     group.ipAddr = *it;
+    //    //     chunkGroups.push_back(group);
+    //    // }
+    //    for (auto& ipAddr : ipList) {
+    //        if (count >= 2) break;
+
+    //        // chunkGroup group;
+    //        // group.chunkIdBegin = 0;
+    //        // group.chunkIdEnd = totalChunks - 1;
+    //        // group.ipAddr = ipAddr;
+    //        // chunkGroups.push_back(group);
+    //        // count++;
+    //    }
+
+    //} else if (ipList.size() > 3){
+    //    auto it = ipList.begin();
+    //    int count = 0;
+    //    int secondHalfBegin = std::ceil(static_cast<double>(totalChunks) / 2);
+    //    for (auto& ipAddr : ipList)
+    //    {
+    //        if (count >= 4) break;
+    //        // chunkGroup group;
+
+    //        // if (count < 2){ // для первых 2 ip
+    //        //     group.chunkIdBegin = 0;
+    //        //     group.chunkIdEnd = secondHalfBegin-1;
+    //        //     group.ipAddr = ipAddr;
+    //        //     chunkGroups.push_back(group);
+    //        // } else {
+    //        //     group.chunkIdBegin = secondHalfBegin;
+    //        //     group.chunkIdEnd = totalChunks-1;
+    //        //     group.ipAddr = ipAddr;
+    //        //     chunkGroups.push_back(group);
+    //        // }
+    //    }
+
+    //};
     return chunkGroups;
 }
 
